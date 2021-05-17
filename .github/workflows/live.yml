@@ -1,0 +1,29 @@
+name: Live Deploy
+on:
+  release:
+    types: [published]
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  AWS_PARTITION: ${{ secrets.NONLIVE_AWS_PARTITION }}
+  AWS_ACCOUNT_ID: ${{ secrets.NONLIVE_AWS_ACCOUNT_ID }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.NONLIVE_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.NONLIVE_AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.NONLIVE_AWS_DEFAULT_REGION }}
+  BUCKET_NAME: ${{ secrets.NONLIVE_AWS_BUCKET_NAME }}
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.NONLIVE_AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+  NODE_ENV: live
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: scaffoldly/bump-version-action@v1
+        with:
+          action: postrelease
+          version-file: sly.json
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          cp sly.json public_html/version.json
+      - run: aws s3 sync . "s3://$BUCKET_NAME"
+        working-directory: public_html
+      - run: aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
